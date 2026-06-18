@@ -66,11 +66,16 @@ def brute_force_password() -> None:
             res = future.result()
             final_found_passwords.update(res)
 
+    if len(final_found_passwords) != len(PASSWORDS_TO_BRUTE_FORCE):
+        raise RuntimeError(
+            "Not all hashes were resolved; expected 10 passwords."
+        )
+
     print("\n=== Final Results ===")
     for item in PASSWORDS_TO_BRUTE_FORCE:
         print(
             f"Hash: {item} -> "
-            f"Password: {final_found_passwords.get(item, 'NOT FOUND')}"
+            f"Password: {final_found_passwords[item]}"
         )
 
 
