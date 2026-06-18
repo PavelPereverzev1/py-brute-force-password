@@ -3,7 +3,6 @@ import time
 from concurrent.futures import as_completed, ProcessPoolExecutor
 from hashlib import sha256
 
-
 PASSWORDS_TO_BRUTE_FORCE = [
     "b4061a4bcfe1a2cbf78286f3fab2fb578266d1bd16c414c650c5ac04dfc696e1",
     "cf0b0cfc90d8b4be14e00114827494ed5522e9aa1c7e6960515b58626cad0b44",
@@ -24,14 +23,14 @@ def sha256_hash_str(to_hash: str) -> str:
 
 def brute_force_chunk(start: int, end: int, target_hashes: set) -> dict:
     local_found = {}
-    sha256_func = sha256
 
     for i in range(start, end):
-        candidate = f"{i: 08d}"
-        current_hash = sha256_func(candidate.encode("utf-8")).hexdigest()
+        candidate = str(i).zfill(8)
+        current_hash = sha256_hash_str(candidate)
 
         if current_hash in target_hashes:
             local_found[current_hash] = candidate
+            print(f"[+] Found by worker: {candidate} -> {current_hash}")
 
             if len(local_found) == len(target_hashes):
                 break
@@ -47,28 +46,31 @@ def brute_force_password() -> None:
     total_space = 100000000
     chunk_size = total_space // num_workers
 
-    executor = ProcessPoolExecutor(max_workers=num_workers)
-    futures = []
+    print(f"Starting parallel brute-force using {num_workers} CPU workers...")
 
-    for worker in range(num_workers):
-        start = worker * chunk_size
-        end = total_space \
-            if worker == num_workers - 1 \
-            else (worker + 1) * chunk_size
+    with ProcessPoolExecutor(max_workers=num_workers) as executor:
+        futures = []
 
-        futures.append(
-            executor.submit(brute_force_chunk, start, end, target_hashes)
-        )
+        for worker in range(num_workers):
+            start = worker * chunk_size
+            if worker == num_workers - 1:
+                end = total_space
+            else:
+                end = (worker + 1) * chunk_size
 
-    for future in as_completed(futures):
-        res = future.result()
-        final_found_passwords.update(res)
+            futures.append(
+                executor.submit(brute_force_chunk, start, end, target_hashes)
+            )
+
+        for future in as_completed(futures):
+            res = future.result()
+            final_found_passwords.update(res)
 
     print("\n=== Final Results ===")
     for item in PASSWORDS_TO_BRUTE_FORCE:
         print(
-            f"Hash: {item} -> Password: "
-            f"{final_found_passwords.get(item, "NOT FOUND")}"
+            f"Hash: {item} -> "
+            f"Password: {final_found_passwords.get(item, 'NOT FOUND')}"
         )
 
 
@@ -77,4 +79,5 @@ if __name__ == "__main__":
     brute_force_password()
     end_time = time.perf_counter()
 
-    print("Elapsed:", end_time - start_time)
+    elapsed_time = round(end_time - start_time, 2)
+    print(f"Elapsed: {elapsed_time} seconds")
